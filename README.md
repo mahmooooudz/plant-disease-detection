@@ -411,6 +411,4 @@ MIT License - see LICENSE file for details
 
 ---
 
-**Built with ❤️ for sustainable agriculture and precision farming**
-
-*Empowering farmers with AI to reduce crop losses and increase food security worldwide*
+**Built with ❤️ for Mindsight Ventures**
