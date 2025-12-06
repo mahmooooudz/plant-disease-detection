@@ -5,7 +5,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.95-green.svg)](https://fastapi.tiangolo.com/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
-An AI-powered plant disease detection system for precision agriculture, using deep learning to identify 10 common tomato diseases with 90%+ accuracy.
+An AI-powered plant disease detection system for precision agriculture, using deep learning to identify 10 common tomato diseases from leaf images.
 
 ## 📋 Overview
 
@@ -14,7 +14,7 @@ Plant diseases cause significant crop losses worldwide. This system helps farmer
 **Key Features:**
 - 🤖 EfficientNetB0-based deep learning model
 - 🔍 Grad-CAM visualization for explainability
-- ⚡ Real-time inference (<200ms)
+- ⚡ Real-time inference (~180ms)
 - 🌐 RESTful API with FastAPI
 - 🎨 Clean web interface
 - 🐳 Docker deployment ready
@@ -37,11 +37,14 @@ Plant diseases cause significant crop losses worldwide. This system helps farmer
 
 | Metric | Score |
 |--------|-------|
-| **Validation Accuracy** | 92.5% |
-| **Top-3 Accuracy** | 98.1% |
+| **Validation Accuracy** | 76.12% |
+| **Top-3 Accuracy** | 96.01% |
 | **Inference Time** | ~180ms |
-| **Training Time** | ~25 minutes |
-| **Model Size** | ~25MB |
+| **Training Time** | ~87 minutes (20 epochs) |
+| **Model Size** | ~17MB |
+| **Parameters** | 4.4M |
+
+*Note: This is an MVP (Minimum Viable Product) demonstrating the feasibility of AI-powered disease detection. Production models typically achieve 85-95% accuracy with additional training, fine-tuning, and data augmentation optimization.*
 
 ## 🚀 Quick Start
 
@@ -49,77 +52,90 @@ Plant diseases cause significant crop losses worldwide. This system helps farmer
 - Python 3.9+
 - 5GB free disk space
 - (Optional) Docker
+- (Optional) CUDA-capable GPU for training
 
-### Installation
+### Option 1: Run with Docker (Easiest)
+
+```bash
+# Clone repository
+git clone https://github.com/mahmooooudz/plant-disease-detection.git
+cd plant-disease-detection
+
+# Start the application
+docker-compose up
+
+# Access web interface
+# Open: http://localhost:8000
+```
+
+### Option 2: Local Installation
 
 1. **Clone & Setup**
 ```bash
-git clone https://github.com/mahmooooudz/plant-disease-detector.git
-cd plant-disease-detector
+git clone https://github.com/mahmooooudz/plant-disease-detection.git
+cd plant-disease-detection
 
+# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-2. **Download Dataset**
+2. **Download Trained Model**
 
-Download from [Kaggle](https://www.kaggle.com/datasets/vipoooool/new-plant-diseases-dataset):
-- Extract to `data/raw/`
-- Should have structure: `data/raw/New Plant Diseases Dataset(Augmented)/train/` and `/valid/`
+The trained model is not included in the repository due to file size. You can either:
 
-3. **Train Model**
+**A) Use pre-trained model** (recommended for testing):
+- Download from: [Add your Google Drive link]
+- Place in: `models/plant_disease_detector.h5`
+
+**B) Train your own model**:
 ```bash
+# Download dataset from Kaggle
+# https://www.kaggle.com/datasets/vipoooool/new-plant-diseases-dataset
+# Extract to: data/raw/New Plant Diseases Dataset(Augmented)/
+
+# Train model
 python src/train.py
 ```
-Expected output: ~92% validation accuracy in 20-25 minutes
 
-4. **Run API**
+3. **Run API Server**
 ```bash
 cd api
 python app.py
 ```
 
-5. **Open Browser**
+4. **Open Web Interface**
 - Web UI: http://localhost:8000
 - API Docs: http://localhost:8000/docs
-
-### Docker Deployment
-
-```bash
-# Build and run
-docker-compose up --build
-
-# Access at http://localhost:8000
-```
 
 ## 📁 Project Structure
 
 ```
-plant-disease-detector/
+plant-disease-detection/
 ├── data/
-│   ├── raw/                    # Dataset
-│   ├── processed/              # Auto-generated
-│   └── test_samples/           # Test images
+│   ├── raw/                      # Dataset (not included)
+│   └── processed/                # Auto-generated splits
 ├── models/
-│   ├── plant_disease_detector.h5  # Trained model
-│   ├── model_metrics.json         # Performance metrics
-│   ├── training_history.png       # Training curves
-│   └── confusion_matrix.png       # Confusion matrix
+│   ├── plant_disease_detector.h5 # Trained model (not included)
+│   ├── model_metrics.json        # Performance metrics
+│   ├── training_history.png      # Training curves
+│   └── confusion_matrix.png      # Confusion matrix
 ├── src/
-│   ├── data_preprocessing.py      # Data handling
-│   ├── model_architecture.py      # Model definition
-│   ├── train.py                   # Training script
-│   └── inference.py               # Inference engine
+│   ├── data_preprocessing.py     # Data augmentation & loading
+│   ├── model_architecture.py     # EfficientNetB0 model
+│   ├── train.py                  # Training script
+│   └── inference.py              # Prediction engine with Grad-CAM
 ├── api/
-│   ├── app.py                     # FastAPI backend
-│   └── requirements.txt
+│   ├── app.py                    # FastAPI backend
+│   └── requirements.txt          # API dependencies
 ├── frontend/
-│   └── index.html                 # Web interface
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
+│   └── index.html                # Web interface
+├── Dockerfile                     # Container definition
+├── docker-compose.yml            # Docker orchestration
+├── requirements.txt              # Python dependencies
 └── README.md
 ```
 
@@ -127,23 +143,38 @@ plant-disease-detector/
 
 **Base Model:** EfficientNetB0 (pre-trained on ImageNet)
 
-**Custom Head:**
-- GlobalAveragePooling
-- BatchNormalization + Dropout(0.4)
-- Dense(256) + ReLU + BatchNorm + Dropout(0.3)
-- Dense(128) + ReLU + Dropout(0.2)
-- Dense(10) + Softmax
+**Custom Classification Head:**
+```
+Input (224×224×3)
+    ↓
+EfficientNetB0 (frozen)
+    ↓
+GlobalAveragePooling2D
+    ↓
+BatchNormalization + Dropout(0.4)
+    ↓
+Dense(256, ReLU) + BatchNorm + Dropout(0.3)
+    ↓
+Dense(128, ReLU) + Dropout(0.2)
+    ↓
+Dense(10, Softmax)
+```
+
+**Total Parameters:** 4,417,837
 
 **Training Configuration:**
-- Optimizer: Adam (lr=0.001)
-- Loss: Categorical Crossentropy
-- Augmentation: Rotation, shifts, zoom, flips
-- Early Stopping: Patience=5
+- **Optimizer:** Adam (initial LR=0.001)
+- **Loss:** Categorical Crossentropy
+- **Metrics:** Accuracy, Top-3 Accuracy
+- **Batch Size:** 32
+- **Image Size:** 224×224
+- **Augmentation:** Rotation (20°), shifts (20%), zoom (20%), horizontal flip
+- **Callbacks:** ModelCheckpoint, EarlyStopping (patience=5), ReduceLROnPlateau
 
 ## 📡 API Endpoints
 
 ### POST /predict
-Upload leaf image and get disease prediction with Grad-CAM.
+Upload a leaf image and receive disease prediction with Grad-CAM visualization.
 
 **Request:**
 ```bash
@@ -156,13 +187,14 @@ curl -X POST "http://localhost:8000/predict" \
 ```json
 {
   "prediction": "Early blight",
-  "confidence": 0.94,
+  "confidence": 0.89,
   "top_predictions": [
-    {"disease": "Early blight", "confidence": 0.94},
-    {"disease": "Late blight", "confidence": 0.03},
-    {"disease": "Septoria leaf spot", "confidence": 0.02}
+    {"disease": "Early blight", "confidence": 0.89},
+    {"disease": "Late blight", "confidence": 0.06},
+    {"disease": "Septoria leaf spot", "confidence": 0.03}
   ],
   "inference_time_ms": 178.3,
+  "total_time_ms": 245.7,
   "gradcam_available": true,
   "gradcam_base64": "..."
 }
@@ -171,88 +203,128 @@ curl -X POST "http://localhost:8000/predict" \
 ### GET /health
 Health check endpoint.
 
+**Response:**
+```json
+{
+  "status": "healthy",
+  "model_loaded": true
+}
+```
+
 ### GET /metrics
 Get model performance metrics.
+
+**Response:**
+```json
+{
+  "val_accuracy": 0.7612,
+  "num_classes": 10,
+  "training_date": "2025-12-06 10:30:15"
+}
+```
 
 ## 🔬 How It Works
 
 1. **Image Upload:** User uploads leaf image through web UI
-2. **Preprocessing:** Image resized to 224x224, normalized
+2. **Preprocessing:** Image resized to 224×224, normalized to [0,1]
 3. **Inference:** EfficientNetB0 model predicts disease class
-4. **Grad-CAM:** Generates heatmap showing focus areas
-5. **Results:** Returns top-3 predictions with confidence scores
+4. **Grad-CAM:** Generates heatmap showing which leaf areas influenced the prediction
+5. **Results:** Returns top-3 predictions with confidence scores + visualization
 
 ## 🎨 Grad-CAM Explainability
 
-Grad-CAM (Gradient-weighted Class Activation Mapping) visualizes which parts of the leaf the AI focuses on:
-- Red areas: High importance for prediction
-- Blue/green areas: Lower importance
-- Helps farmers understand AI reasoning
-- Validates model is looking at actual disease symptoms
+**Grad-CAM** (Gradient-weighted Class Activation Mapping) visualizes what the AI "sees":
+- **Red areas:** High importance for the prediction
+- **Yellow/Green areas:** Moderate importance
+- **Blue areas:** Low importance
+
+This helps:
+- Validate the model is focusing on actual disease symptoms (not background)
+- Build trust with farmers by explaining AI decisions
+- Debug model behavior and improve training data
 
 ## 🎯 Engineering Decisions
 
 ### Why EfficientNetB0?
-- **Accuracy:** Outperforms ResNet50 with fewer parameters
-- **Speed:** 180ms inference (production-ready)
-- **Size:** 25MB model (edge deployment possible)
-- **Proven:** State-of-the-art for image classification
+- **Efficiency:** 4.4M parameters vs 25M+ in ResNet50
+- **Accuracy:** State-of-the-art performance on ImageNet
+- **Speed:** 180ms inference on CPU (production-ready)
+- **Size:** 17MB model (can be deployed on edge devices)
 
 ### Why FastAPI?
-- **Performance:** Async support for concurrent requests
-- **Documentation:** Automatic OpenAPI docs
-- **Modern:** Type hints and validation with Pydantic
+- **Performance:** Async support for handling concurrent requests
+- **Documentation:** Automatic OpenAPI/Swagger docs
+- **Modern:** Python 3.9+ type hints and Pydantic validation
+- **Developer Experience:** Hot reload, easy debugging
 
-### Why 10 Classes?
-- Balanced complexity vs. real-world utility
-- All tomato diseases (consistent plant type)
-- Dataset has sufficient samples per class
-- Demonstrates multi-class capability
+### Why Docker?
+- **Consistency:** "Works on my machine" → "Works everywhere"
+- **Isolation:** No dependency conflicts
+- **Deployment:** One-command deployment to any cloud provider
+- **Scalability:** Easy to scale horizontally with orchestration
+
+### Why 10 Classes (Tomato Only)?
+- **Focused scope:** MVP demonstrating core functionality
+- **Data quality:** Dataset has 8K+ high-quality images per class
+- **Consistent context:** All same plant type reduces complexity
+- **Real-world utility:** Tomatoes are one of the most economically important crops
 
 ## 📈 Training Process
 
-The training script:
-1. Loads balanced dataset (87,000+ images)
-2. Applies data augmentation
-3. Fine-tunes EfficientNetB0
-4. Monitors validation accuracy
-5. Saves best model
-6. Generates performance visualizations
+The model was trained on a dataset of 16,065 images (12,853 train, 3,212 validation):
 
-**Typical Training Output:**
+**Training Progression:**
 ```
-Epoch 1/20: val_accuracy: 0.7842
-Epoch 5/20: val_accuracy: 0.8923
-Epoch 10/20: val_accuracy: 0.9156
-Epoch 15/20: val_accuracy: 0.9247
-Final: val_accuracy: 0.9251 (92.51%)
+Epoch 1/20:  val_accuracy: 64.32%
+Epoch 5/20:  val_accuracy: 69.21%
+Epoch 10/20: val_accuracy: 71.14%
+Epoch 15/20: val_accuracy: 70.14% (LR reduced)
+Epoch 17/20: val_accuracy: 75.62% ⭐ (Best)
+Epoch 19/20: val_accuracy: 76.12% ⭐ (Final Best)
 ```
+
+**Key Observations:**
+- Learning rate reductions at epochs 8 and 15 helped recover from plateaus
+- Top-3 accuracy of 96% indicates strong feature learning
+- Model correctly identifies disease in top-3 predictions 96% of the time
 
 ## 🌟 Use Cases
 
-1. **Precision Agriculture:** Early disease detection
-2. **Agricultural Extension:** Remote diagnosis tool
-3. **Research:** Disease pattern analysis
-4. **Education:** Agricultural training tool
-5. **Mobile Apps:** Farmer-facing applications
+1. **Precision Agriculture:** Early disease detection for large farms
+2. **Smallholder Farmers:** Mobile diagnosis tool for resource-limited farmers
+3. **Agricultural Extension:** Remote diagnosis by agricultural advisors
+4. **Research:** Disease pattern analysis and tracking
+5. **Education:** Training tool for agricultural students and extension workers
 
-## 🔮 Future Improvements
+## 🚧 Known Limitations & Future Work
 
-- [ ] Expand to 38 plant species (full PlantVillage dataset)
-- [ ] Mobile app (React Native + TensorFlow Lite)
-- [ ] Disease severity assessment
-- [ ] Treatment recommendations
-- [ ] Multi-language support
-- [ ] Offline mode for remote areas
-- [ ] Integration with IoT sensors
+### Current Limitations:
+- **76% accuracy:** Good for MVP, but production systems need 85-90%+
+- **Tomato-only:** Limited to 10 tomato diseases
+- **Controlled images:** Dataset is lab-quality; real-world images may vary
+- **No severity assessment:** Only detects disease type, not severity
+- **Single-leaf focus:** Cannot analyze multiple leaves or whole plants
+
+### Planned Improvements:
+- [ ] **Improve accuracy to 85-90%** through fine-tuning and better augmentation
+- [ ] **Expand to 38 classes** across multiple plant species
+- [ ] **Mobile app** (React Native + TensorFlow Lite)
+- [ ] **Disease severity grading** (early/mid/late stage)
+- [ ] **Treatment recommendations** database integration
+- [ ] **Multi-language support** (Arabic, French, Spanish, Hindi)
+- [ ] **Offline mode** for areas with poor connectivity
+- [ ] **Field testing** with real farmers for UX feedback
 
 ## 📊 Dataset
 
-**Source:** PlantVillage Dataset (augmented version)
-- **Total Images:** 87,000+
-- **Classes:** 10 tomato diseases + healthy
-- **Quality:** High-resolution leaf images
-- **Balance:** Each class has 8,000-9,000 images
+**Source:** PlantVillage Dataset (Augmented Version)
+- **Total Images:** 87,000+ (augmented)
+- **Used Classes:** 10 tomato diseases + healthy
+- **Image Quality:** High-resolution (256×256 base)
+- **Balance:** ~8,000-9,000 images per class
+- **Split:** 80% train, 20% validation
+
+**Download:** [Kaggle - New Plant Diseases Dataset](https://www.kaggle.com/datasets/vipoooool/new-plant-diseases-dataset)
 
 **Citation:**
 ```
@@ -262,18 +334,60 @@ development of mobile disease diagnostics.
 arXiv preprint arXiv:1511.08060.
 ```
 
+## 🛠️ Development
+
+### Training on GPU
+
+For faster training, use a CUDA-capable GPU:
+
+```bash
+# Install GPU-enabled TensorFlow
+pip install tensorflow[and-cuda]
+
+# Verify GPU detection
+python -c "import tensorflow as tf; print('GPUs:', tf.config.list_physical_devices('GPU'))"
+
+# Train (will automatically use GPU)
+python src/train.py
+```
+
+**Performance:**
+- **CPU:** ~4 minutes per epoch (RTX 4060)
+- **GPU:** ~15-20 seconds per epoch (15-20x faster)
+
+### API Development
+
+```bash
+# Run with auto-reload
+cd api
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
+```
+
+### Docker Development
+
+```bash
+# Build image
+docker build -t plant-disease-detector .
+
+# Run container
+docker run -p 8000:8000 -v ./models:/app/models plant-disease-detector
+
+# View logs
+docker logs -f plant-disease-detector
+```
+
 ## 🤝 Contributing
 
-This project was built as a technical demonstration for agricultural AI applications.
+This is an MVP demonstration project. For production use cases or collaborations, please reach out!
 
-## 📝 License
+## 📄 License
 
-MIT License - see LICENSE file
+MIT License - see LICENSE file for details
 
-## 👤 Contact
+## 👤 Author
 
 **Mahmoud Emad**
-- Email: Mahmoudkhafaga73@gmail.com
+- Email: mahmoudkhafaga73@gmail.com
 - LinkedIn: [linkedin.com/in/mahmooooudz](https://linkedin.com/in/mahmooooudz/)
 - GitHub: [github.com/mahmooooudz](https://github.com/mahmooooudz)
 
@@ -281,4 +395,4 @@ MIT License - see LICENSE file
 
 **Built with ❤️ for sustainable agriculture and precision farming**
 
-*Empowering farmers with AI to reduce crop losses and increase food security*
+*Empowering farmers with AI to reduce crop losses and increase food security worldwide*
